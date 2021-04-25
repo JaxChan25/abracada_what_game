@@ -14,10 +14,10 @@ void *recv_msg(void *arg);
 void error_handling(char *msg);
 
 char name[NAME_SIZE] = "[DEFAULT]";
-char msg[BUF_SIZE];
 
 int main(int argc, char *argv[])
 {
+    printf("start...\n");
     int sock;
     struct sockaddr_in serv_addr;
     pthread_t snd_thread, rcv_thread;
@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    sprintf(name, "[%s]", argv[3]);
+    sprintf(name, "%s", argv[3]);
     sock = socket(PF_INET, SOCK_STREAM, 0);
 
     memset(&serv_addr, 0, sizeof(serv_addr));
@@ -38,6 +38,9 @@ int main(int argc, char *argv[])
 
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1)
         error_handling("connect() error");
+
+    printf("注册身份信息,%s\n", name);
+    write(sock, name, strlen(name));
 
     pthread_create(&snd_thread, NULL, send_msg, (void *)&sock); //创建发送消息线程
     pthread_create(&rcv_thread, NULL, recv_msg, (void *)&sock); //创建接受消息线程
@@ -51,6 +54,7 @@ void *send_msg(void *arg) // 发送消息
 {
     int sock = *((int *)arg);
     char name_msg[NAME_SIZE + BUF_SIZE];
+    char msg[BUF_SIZE];
     while (1)
     {
         fgets(msg, BUF_SIZE, stdin);
@@ -68,15 +72,15 @@ void *send_msg(void *arg) // 发送消息
 void *recv_msg(void *arg) // 读取消息
 {
     int sock = *((int *)arg);
-    char name_msg[NAME_SIZE + BUF_SIZE];
     int str_len;
+    char msg[BUF_SIZE];
     while (1)
     {
-        str_len = read(sock, name_msg, NAME_SIZE + BUF_SIZE - 1);
+        str_len = read(sock, msg, BUF_SIZE - 1);
         if (str_len == -1)
             return (void *)-1;
-        name_msg[str_len] = 0;
-        fputs(name_msg, stdout);
+        msg[str_len] = 0;
+        fputs(msg, stdout);
     }
     return NULL;
 }

@@ -6,27 +6,29 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include "game.h"
 
 #define BUF_SIZE 100
-#define MAX_CLNT 256
 
 void *handle_clnt(void *arg);
 void send_msg(char *msg, int len);
 void error_handling(char *msg);
 
-int clnt_cnt = 0;
-int clnt_socks[MAX_CLNT];
+int PLAYER_NUM;
 pthread_mutex_t mutx;
+Game g_ins;
+Game *gptr = &g_ins;
 
 int main(int argc, char *argv[])
 {
+    printf("start server!\n"); //用\n刷新缓冲区
     int serv_sock, clnt_sock;
     struct sockaddr_in serv_adr, clnt_adr;
-    int clnt_adr_sz;
+    int clnt_adr_sz = sizeof(clnt_adr);
     pthread_t t_id;
-    if (argc != 2)
+    if (argc != 3)
     {
-        printf("Usage : %s <port>\n", argv[0]);
+        printf("Usage : %s <port> <player_num>\n", argv[0]);
         exit(1);
     }
 
@@ -43,19 +45,70 @@ int main(int argc, char *argv[])
     if (listen(serv_sock, 5) == -1)
         error_handling("listen() error");
 
+    PLAYER_NUM = atoi(argv[2]);
+    gptr->player_num = PLAYER_NUM;
+    init_player_list(gptr);
+    for (int i = 0; i < PLAYER_NUM; i++)
+    {
+        print_player(&(gptr->player_list[i]));
+    }
+
+    // 进入游戏状态
     while (1)
     {
-        clnt_adr_sz = sizeof(clnt_adr);
-        clnt_sock = accept(serv_sock, (struct sockaddr *)&clnt_adr, &clnt_adr_sz); // 这个是阻塞的
+        switch (gptr->game_state)
+        {
+        case CONNECT_PLAYERS:
+            for (int i = 0; i < PLAYER_NUM; i++)
+            {
+                printf("准备初始化id=%d的角色\n", i);
+                clnt_sock = accept(serv_sock, (struct sockaddr *)&clnt_adr, &clnt_adr_sz); // 这个是阻塞的
+                // 初始化角色
+                gptr->player_list[i].id = i;
+                gptr->player_list[i].player_sock = clnt_sock; //写入新连接
+                char msg[BUF_SIZE];
+                int str_len = read(clnt_sock, msg, sizeof(msg));
+                if (str_len == 0)
+                {
+                    error_handling("player初始化失败");
+                }
+                msg[str_len] = 0;
+                gptr->player_list[i].name = (char *)malloc(str_len);
+                strcpy(gptr->player_list[i].name, msg);
+                sprintf(msg, "[SERVER]初始化角色,id = %d, name=%s\n", gptr->player_list[i].id, gptr->player_list[i].name);
+                send_msg(msg, sizeof(msg));
 
-        pthread_mutex_lock(&mutx);          //上锁
-        clnt_socks[clnt_cnt++] = clnt_sock; //写入新连接
-        pthread_mutex_unlock(&mutx);        //解锁
+                pthread_create(&t_id, NULL, handle_clnt, (void *)&clnt_sock);       //创建线程为新客户端服务，并且把clnt_sock作为参数传递
+                pthread_detach(t_id);                                               //引导线程销毁，不阻塞
+                printf("Connected client IP: %s \n", inet_ntoa(clnt_adr.sin_addr)); //客户端连接的ip地址
+            }
+            gptr->game_state = INIT_GAME;
+            break;
+        case INIT_GAME:
+            printf("进入游戏初始化");
+            for (size_t i = 0; i < PLAYER_NUM; i++)
+            {
+                gptr->player_list[i].hp = 6;
+            }
+            // todo：初始化工作；牌堆初始化；以及牌的实现逻辑；周末再继续。
 
-        pthread_create(&t_id, NULL, handle_clnt, (void *)&clnt_sock);       //创建线程为新客户端服务，并且把clnt_sock作为参数传递
-        pthread_detach(t_id);                                               //引导线程销毁，不阻塞
-        printf("Connected client IP: %s \n", inet_ntoa(clnt_adr.sin_addr)); //客户端连接的ip地址
+            /* code */
+            break;
+        case RUN_GAME:
+            /* code */
+            break;
+        case CALCULATE_POINTS:
+            /* code */
+            break;
+
+        default:
+            break;
+        }
     }
+
+    printf("finish game!\n");
+    free_player_list(gptr);
+    free(gptr);
     close(serv_sock);
     return 0;
 }
@@ -63,36 +116,27 @@ int main(int argc, char *argv[])
 void *handle_clnt(void *arg)
 {
     int clnt_sock = *((int *)arg);
-    int str_len = 0, i;
+    int str_len = 0;
     char msg[BUF_SIZE];
 
     //会卡在这里一致循环
     while ((str_len = read(clnt_sock, msg, sizeof(msg))) != 0)
         send_msg(msg, str_len);
 
-    //接收到消息为0，代表当前客户端已经断开连接
-    pthread_mutex_lock(&mutx);
-    for (i = 0; i < clnt_cnt; i++) //删除没有连接的客户端
-    {
-        if (clnt_sock == clnt_socks[i])
-        {
-            while (i++ < clnt_cnt - 1)
-                clnt_socks[i] = clnt_socks[i + 1];
-            break;
-        }
-    }
-    clnt_cnt--;
-    pthread_mutex_unlock(&mutx);
-    close(clnt_sock);
     return NULL;
 }
 void send_msg(char *msg, int len) //向连接的所有客户端发送消息
 {
     int i;
-    pthread_mutex_lock(&mutx);
-    for (i = 0; i < clnt_cnt; i++)
-        write(clnt_socks[i], msg, len);
-    pthread_mutex_unlock(&mutx);
+    for (i = 0; i < PLAYER_NUM; i++)
+    {
+        int player_sock = gptr->player_list[i].player_sock;
+        if (player_sock != -1)
+        {
+            printf("给id= %d,发送消息,%s", i, msg);
+            write(player_sock, msg, len);
+        }
+    }
 }
 void error_handling(char *msg)
 {

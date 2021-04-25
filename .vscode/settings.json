@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "cstddef": "c",
+        "type_traits": "c",
+        "cmath": "c",
+        "limits": "c",
+        "game.h": "c",
+        "streambuf": "c"
+    }
+}

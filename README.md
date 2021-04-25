@@ -67,8 +67,8 @@
 ```
 git clone https://github.com/JaxChan25/abracada_what_game.git
 cd abracada_what_game
-gcc chat_server.c -D_REENTRANT -o server -lpthread
-gcc chat_clnt.c -D_REENTRANT -o cilent -lpthread
+gcc server.c game.c -D_REENTRANT -o ser -lpthread
+gcc cilent.c -D_REENTRANT -o clt -lpthread
 ```
 
 也可以下载relaese
@@ -77,9 +77,9 @@ gcc chat_clnt.c -D_REENTRANT -o cilent -lpthread
 
 ### 运行
 
-启动服务：`./cserv port`
+启动服务：`./ser port {player_num}`
 
-玩家加入：`./cilent {server_ip} {server_port} {your_name}`
+玩家加入：`./clt {server_ip} {server_port} {your_name}`
 
 
 
