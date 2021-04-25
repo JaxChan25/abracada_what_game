@@ -93,7 +93,7 @@ gcc chat_clnt.c -D_REENTRANT -o cilent -lpthread
 
 初始、连接玩家、游戏初始化，游戏进行、积分计算、结束
 
-![状态机](\img\game_state.png)
+![状态机](/img/game_state.png)
 
 
 
