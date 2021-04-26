@@ -25,7 +25,7 @@ void print_player(Player *p)
     printf("id:%d,sock:%d,hp:%d,name:%s\n", p->id, p->player_sock, p->hp, p->name);
 }
 
-int *make_remain_total_cards()
+int *make_remain_cards()
 {
     int *p;
     p = (int *)malloc(CAR_TYPE * sizeof(int));
@@ -36,3 +36,20 @@ int *make_remain_total_cards()
     return p;
 }
 
+void send_cards(Game *gptr)
+{
+    int *p = gptr->remain_cards;
+    // 最粗暴的解法
+    for (int i = 0; i < gptr->player_num; i++)
+    {
+        int cnt = 0;
+        while (cnt < 5)
+        {
+            int select = rand() % CAR_TYPE;
+            if (p[select] == 0)
+                continue;
+            gptr->player_list[i].handcard[cnt++] = select + 1;
+            p[select]--;
+        }
+    }
+}

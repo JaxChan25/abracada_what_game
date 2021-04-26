@@ -48,10 +48,7 @@ int main(int argc, char *argv[])
     PLAYER_NUM = atoi(argv[2]);
     gptr->player_num = PLAYER_NUM;
     init_player_list(gptr);
-    for (int i = 0; i < PLAYER_NUM; i++)
-    {
-        print_player(&(gptr->player_list[i]));
-    }
+    gptr->remain_cards = NULL;
 
     // 进入游戏状态
     while (1)
@@ -90,9 +87,15 @@ int main(int argc, char *argv[])
             {
                 gptr->player_list[i].hp = 6;
             }
-            // todo：初始化工作；牌堆初始化；以及牌的实现逻辑；周末再继续。
-
-            /* code */
+            // 初始化牌堆
+            if (gptr->remain_cards != NULL)
+            {
+                free(gptr->remain_cards);
+            }
+            gptr->remain_cards = make_remain_cards();
+            // 发牌
+            init_players_cards(gptr);
+            gptr->game_state = RUN_GAME;
             break;
         case RUN_GAME:
             /* code */
